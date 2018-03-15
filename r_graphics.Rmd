@@ -34,10 +34,9 @@ If you work through this on your own, you may want to start with this [intro on 
 
 The examples and code snippets require that you install the following packages:
 
-```{r}
-install.packages("ggplot2", "readxl", "data.table", "RColorBrewer", "colorspace")
+```{r, eval = FALSE}
+install.packages("ggplot2", "readxl", "data.table", "RColorBrewer", "colorspace", "Shiny")
 ```
-
 
 
 For the following examples, I will use the datasets from wednesday: `LUI_factors`, `voeller` and `flowerdata`. 
@@ -704,6 +703,16 @@ plot(n_inflorescences ~ plant_height, data = voeller,
      )
 ```
 
+As shown above, we apply the squared brackets for assigning each factor level in column eventID an own color value. 
+
+For **continuous variables** this requires binning of the vector into discrete variables, before assigning colors. However, adding a legend for this is not trivial.  
+
+```{r}
+plot(Herbivore_SpeciesRichness ~ Predator_SpeciesRichness, data = dd_full, 
+     pch = 19,  
+     col = gray.colors(25)[cut(Mowing, 25)]
+     )
+```
 
 The simplest form of color difference is black and white, or halftone (i.e. grayscale), which is always safe for print and on screen. 
 
@@ -798,10 +807,29 @@ plot(n_inflorescences ~ plant_height, data = voeller,
 ```
 
 
-Finally, ggplot2 comes with tools for color choice that are embedded in all of its geom and scale functions.
+Finally, ggplot2 specifies color within the aes() argument of the ggplot() call, i.e. a third level of information mapped to color. It comes with tools for color ramps defined as scale functions.
 
+```{r, warnings = FALSE}
+ggplot(voeller, aes(x = plant_height, y = n_inflorescences, colour = eventID)) + 
+  geom_point() + 
+  scale_color_brewer(palette = "Dark2") +
+  xlim(0,100) + theme_classic()
+```
 
+- `scale_color_brewer()` applies the palettes of the RColorBrewer package
+- `scale_color_manual()` allows you to specify own colors 
+- `scale_color_hue()` alters the shade/hue of your selected color palette
 
+For continuous variables, we use `scale_color_gradient()`: 
+
+```{r, warnings = FALSE}
+ggplot(voeller, aes(x = plant_height, y = n_inflorescences, colour = latitude)) + 
+  geom_point() + 
+  scale_colour_gradient(low = "salmon", high = "red3") +
+  xlim(0,100) + theme_classic()
+```
+
+Note that ggplot gracefully produces an exact legend!
 
 
 ### axes
@@ -1007,10 +1035,20 @@ In the following sections, we will discuss properties in R plotting that are rel
 
 For a simple addition of linear models to a plain scatterplot, you can use the `abline()` function. 
 
+
+```{r}
+model <- lm(Plant_SpeciesRichness ~ Herbivore_SpeciesRichness, data = dd_full)
+S_new <- seq(0, 60, length = 51)  # generates new x-values
+
+plot(Plant_SpeciesRichness ~ Herbivore_SpeciesRichness, data = dd_full, pch = 20)
+abline(model)
+
+```
+
+
 To add lines of a non-linear model or to trace the linear model in log-log space, we can apply the  function `predict()` to simulate a new vector of predicted values for a equidistant gradient along our x-axis. 
 
 ```{r}
-
 model <- lm(Plant_SpeciesRichness ~ Herbivore_SpeciesRichness, data = dd_full)
 S_new <- seq(0, 60, length = 51)  # generates new x-values
 
@@ -1032,6 +1070,35 @@ lines(S_new, plant_pred[,"lwr"], lty = 3)
 lines(S_new, plant_pred[,"upr"], lty = 3)
 ```
 
+Predict also has methods for other model functions, like nonparametric polynomials or glms and works just as well. Not that this even works if you change your plotting plane into log-log space. 
+
+
+```{r}
+model <- glm(total_biomass ~ plant_height, data = voeller, family = quasipoisson)
+
+summary(model)
+
+x_new <- seq(0, 200, length = 51)  # generates new x-values
+
+plant_pred <- predict(model,  newdata = list(plant_height = x_new), type="response", se.fit = TRUE)
+
+plot( total_biomass ~ plant_height, data = voeller, pch = 20)
+lines(x_new, plant_pred$fit)
+lines(x_new, plant_pred$fit + 1.96*plant_pred$se.fit, lty = 3)
+lines(x_new, plant_pred$fit - 1.96*plant_pred$se.fit, lty = 3)
+```
+This works, regardless of the mapping of the plot in logarithmic scales: 
+
+```{r}
+
+plot( total_biomass ~ plant_height, data = voeller, pch = 20, log = "y")
+lines(x_new, plant_pred$fit)
+lines(x_new, plant_pred$fit + 1.96*plant_pred$se.fit, lty = 3)
+lines(x_new, plant_pred$fit - 1.96*plant_pred$se.fit, lty = 3)
+```
+
+
+
 Note that the package `ggplot2` provides some tools to generate confidence intervals with ease. 
 
 
@@ -1044,31 +1111,12 @@ ggplot(dd_full, aes(x = Herbivore_SpeciesRichness, y = Plant_SpeciesRichness)) +
   theme_classic()
 ```
 
-## axis scale
-
-![](http://imgs.xkcd.com/comics/sustainable.png) 
-
-## scale data points
-
-cex
-symbols, circles
-ggplot2
-
-## color scale
-
-### continuous color ramps
-
-add legend
-
-
-
-## plotting residuals
-
-## non-linear models
-
-
 
 ## add error bars
+
+The base barplot does not have a native option to add error bars. The `arrows()` function can be used for that: 
+
+
 
 ---
 
@@ -1081,7 +1129,6 @@ Design an own graph, using your own data or data from the course, with at least 
 - a discrete color or point character pattern for a third dimension of categorical data
 
 Above all, show the data! Maximize data-ink ratio and minimize the lie-factor! 
-
 
 
 ---
@@ -1245,7 +1292,7 @@ Raster formats:
 
 - `bmp()` for bitmap files (no compression)
 - `png()` for gif and png files (selective color)
-- `jpg()` for jpg (pixel compression)
+- `jpeg()` for jpg (pixel compression)
 - `tiff()` for tiff files (best quality/compression trade-off)
 
 Vector formats:
@@ -1257,11 +1304,11 @@ Mostly, vector format is what journals want, because its scalable without loss a
 
 ## the raster output
 
+Raster plots scale with the resolution that you specify. You can either give a precise pixel dimensions by providing `width` and `height`, or define a target print dimension in centimeters, by setting `units = "cm"` and define `width`, `height` as well as resolutinon `res`. A minimal resolution for printing is 300 dots per inch. For screen output, e.g. on websites, 72 dpi is sufficient. 
 
 ```{r, eval = FALSE}
-png("filename.png", 
-    width = 460, height = 720,  #in pixels
-    res = 72, # set relative size of plot
+jpeg("filename.jpg", 
+    width = 460, height = 720, #in pixels
     antialias = "none" # no smoothing of pixelation 
     family = "Times" # for journals that want serif
     )
@@ -1272,8 +1319,10 @@ dev.off()
 ```
 
 
-
 ## the pdf output
+
+pdf is the standard format for paper submission because it is lossless. The file will grow very big if your plot contains many data points. You can chose whether you print your plot on a regular A4 paper format, or cropped to the given plot dimensions. 
+The useDingbats argument is important for making your plot independent of Windows-specific fonts. 
 
 ```{r, eval = FALSE}
 pdf("filename.pdf", 
@@ -1293,19 +1342,107 @@ Note that multiple high-level plot calls in a pdf device create multi-page pdfs!
 
 ## ggplot saving
 
-TT
+Saving ggplot plots is slightly different. A simple way is to wrap your plot in the `print()` function for writing it to a pdf or jpeg device. 
+
+```{r, eval = FALSE}
+pdf("filename.pdf", 
+    width = 7, height = 6,  #in inches: 1in = 2.54cm
+    paper = "special",  # or "a4"
+    useDingbats = FALSE, # avoids weird symbols
+    family = "Times" # for journals that want serif
+    )
+
+print(ggplot(...) + geom_point() + theme_classic())
+
+dev.off()
+```
+
+The other option is the function `ggsave()` which is  called just following a plot call. 
+
+```{r, eval = FALSE}
+
+ggplot(...) + geom_point() + theme_classic()
+
+ggsave("filename.pdf", width = 20, height = 20, units = "cm")
+```
+
+
 
 ## shiny apps (web- output)
 
-TT
+RStudio offers a feature for interactive plotting which is a great way to explore complex datasets or to visualize model behaviour depending on parameters. 
+
+```{r, eval = FALSE}
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
+library(shiny)
+
+# Define UI for application that draws a histogram
+ui <- fluidPage(
+   
+   # Application title
+   titlePanel("Biodiversity Exploratories : Land Use Intensity on Plots"),
+   
+   # Sidebar with a slider input for number of bins 
+   sidebarLayout(
+      sidebarPanel(
+        selectInput(inputId = "exploratory",
+                    label = "Exploratory region:",
+                    choices = c("ALB", "HAI", "SCH")
+                    ),
+      sliderInput("year",
+                    "Year of observation:",
+                    min = 2006,
+                    max = 2016,
+                    value = 2014)
+      ),
+      
+      # Show a plot of the generated distribution
+      mainPanel(
+         plotOutput("distPlot")
+      )
+   )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+   
+  output$distPlot <-  renderPlot({
+    
+    dd <- subset(LUI_factors, Year == input$year & Exploratory == input$exploratory )
+    
+   
+    plot(LUI ~ EP_PlotID, 
+         data = droplevels(dd),
+         ylim = c(0,1)
+         )
+   })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+
+```
+
+![](assets/shiny01.png)
+
+## animation package
+
+The package [animation](https://cran.r-project.org/web/packages/animation/index.html) offers the possibility to create animated gifs or videos from your plot, e.g. to create a visual of changin parameters on a model. 
 
 ---
 
-# Exercise 3
+# Exercise 3 {.exercise}
 
-Produce a print output for your graphic from Exercise 2. 
-
-TT
+Finish your own graph and produce a print output in pdf and jpg. 
 
 ---
 
